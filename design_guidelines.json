@@ -1,0 +1,129 @@
+{
+  "identity": {
+    "persona": "E1 - The Anti-AI Designer",
+    "archetype": "Soft Utility",
+    "tone": "Professional, Clean, Trustworthy, Efficient"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Manrope, sans-serif",
+      "body": "IBM Plex Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-medium",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground",
+      "tiny": "text-xs uppercase tracking-wider font-semibold"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap');"
+    ]
+  },
+  "colors": {
+    "theme": "light",
+    "palette": {
+      "background": "210 40% 98%",
+      "foreground": "222 47% 11%",
+      "card": "0 0% 100%",
+      "card_foreground": "222 47% 11%",
+      "popover": "0 0% 100%",
+      "popover_foreground": "222 47% 11%",
+      "primary": "221 83% 53%",
+      "primary_foreground": "210 40% 98%",
+      "secondary": "210 40% 96.1%",
+      "secondary_foreground": "222 47% 11%",
+      "muted": "210 40% 96.1%",
+      "muted_foreground": "215 16% 47%",
+      "accent": "210 40% 96.1%",
+      "accent_foreground": "222 47% 11%",
+      "destructive": "0 84.2% 60.2%",
+      "destructive_foreground": "210 40% 98%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "221 83% 53%",
+      "chart_1": "221 83% 53%",
+      "chart_2": "142 76% 36%",
+      "chart_3": "35 92% 65%",
+      "chart_4": "0 84% 60%",
+      "chart_5": "262 83% 58%"
+    },
+    "semantic": {
+      "success": "text-emerald-600 bg-emerald-50 border-emerald-200",
+      "warning": "text-amber-600 bg-amber-50 border-amber-200",
+      "error": "text-red-600 bg-red-50 border-red-200",
+      "info": "text-blue-600 bg-blue-50 border-blue-200"
+    }
+  },
+  "layout_strategy": {
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8 md:gap-12",
+      "internal_padding": "p-6"
+    },
+    "grids": {
+      "dashboard_employer": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "dashboard_employee": "flex flex-col items-center justify-center min-h-[80vh] max-w-2xl mx-auto gap-8",
+      "bento_item_hero": "col-span-full md:col-span-2 lg:col-span-3 row-span-2",
+      "bento_item_standard": "col-span-1 row-span-1",
+      "bento_item_tall": "col-span-1 row-span-2"
+    }
+  },
+  "components": {
+    "cards": {
+      "style": "bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-xl",
+      "header": "border-b border-slate-100 p-6",
+      "content": "p-6"
+    },
+    "buttons": {
+      "primary": "rounded-full px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200",
+      "secondary": "rounded-full px-6 py-4 text-base font-medium border border-slate-200 hover:bg-slate-50 transition-colors",
+      "ghost": "rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+    },
+    "inputs": {
+      "style": "h-12 rounded-lg border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+    },
+    "status_badges": {
+      "base": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+      "variants": {
+        "active": "bg-emerald-50 text-emerald-700 border-emerald-200",
+        "inactive": "bg-slate-50 text-slate-600 border-slate-200",
+        "warning": "bg-amber-50 text-amber-700 border-amber-200",
+        "error": "bg-red-50 text-red-700 border-red-200"
+      }
+    }
+  },
+  "visual_assets": {
+    "images": [
+      {
+        "url": "https://images.pexels.com/photos/35438279/pexels-photo-35438279.jpeg",
+        "category": "login_background",
+        "description": "Modern bright office workspace, use with overlay for login page"
+      },
+      {
+        "url": "https://images.pexels.com/photos/35438270/pexels-photo-35438270.jpeg",
+        "category": "dashboard_hero",
+        "description": "Professional team meeting, use for employer dashboard welcome section"
+      }
+    ],
+    "icons": "lucide-react"
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-out",
+    "hover_lift": "hover:-translate-y-1 hover:shadow-lg",
+    "page_enter": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "universal_guidelines": [
+    "DO NOT use 'Inter' for headings. Use 'Manrope'.",
+    "DO NOT use gradients for backgrounds. Use solid colors or subtle noise textures.",
+    "ALWAYS add 'data-testid' to interactive elements.",
+    "NEVER use 'transition: all'. Specify properties.",
+    "Use 2-3x more padding than standard.",
+    "Ensure all text has sufficient contrast (APCA/WCAG AA).",
+    "Use 'sonner' for toasts.",
+    "Use 'lucide-react' for icons."
+  ],
+  "instructions_to_main_agent": "1. Update 'index.css' with the provided HSL color values. 2. Install 'lucide-react' and 'sonner'. 3. Create a 'Layout' component that handles the sidebar/navbar logic based on user role. 4. Implement the 'Employee Dashboard' as a focused, single-card experience. 5. Implement the 'Employer Dashboard' as a dense data grid. 6. Use the provided image URLs for the login page and dashboard headers."
+}
