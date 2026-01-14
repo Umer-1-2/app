@@ -1,3 +1,10 @@
+from dotenv import load_dotenv
+from pathlib import Path
+import hashlib
+import base64
+
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -16,6 +23,7 @@ import resend
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
+import hashlib
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,7 +34,10 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Security
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["argon2"],
+    deprecated="auto"
+)
 security = HTTPBearer()
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
@@ -90,8 +101,12 @@ class MonthlyReportQuery(BaseModel):
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()
