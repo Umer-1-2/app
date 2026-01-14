@@ -25,8 +25,8 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 import hashlib
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# ROOT_DIR = Path(__file__).parent
+# load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -135,6 +135,16 @@ def is_weekend(date_obj: datetime) -> bool:
 def calculate_hours(start: datetime, end: datetime) -> float:
     delta = end - start
     return round(delta.total_seconds() / 3600, 2)
+
+def today_str():
+    return datetime.now(timezone.utc).date().isoformat()
+
+async def get_today_attendance(user_id: str):
+    return await db.attendance.find_one({
+        "user_id": user_id,
+        "date": today_str()
+    })
+
 
 async def send_incomplete_shift_email(employer_email: str, incomplete_employees: List[dict]):
     if not resend.api_key:
@@ -266,6 +276,18 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     token = create_access_token({"sub": user['user_id'], "role": user['role']})
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+
+    await db.attendance.update_one(
+        {
+            "user_id": user["user_id"],
+            "date": yesterday,
+            "status": {"$in": ["IN_PROGRESS", "ON_BREAK"]}
+        },
+        {"$set": {"status": "INCOMPLETE"}}
+)
+
     
     return {
         "token": token,
@@ -287,9 +309,10 @@ async def punch_in(current_user: User = Depends(get_current_user)):
     today_str = today.isoformat()
     
     # Check if already punched in today
-    existing = await db.attendance.find_one({"user_id": current_user.user_id, "date": today_str})
-    if existing and existing.get('punch_in'):
-        raise HTTPException(status_code=400, detail="Already punched in today")
+    existing = await get_today_attendance(current_user.user_id)
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already punched in today")
+
     
     now = datetime.now(timezone.utc)
     is_weekend_day = is_weekend(now)
@@ -305,13 +328,15 @@ async def punch_in(current_user: User = Depends(get_current_user)):
         "date": today_str,
         "punch_in": now.isoformat(),
         "punch_out": None,
-        "break_start": None,
-        "break_end": None,
+        "breaks": [],
+        "total_break_minutes": 0,
+        "total_work_minutes": 0,
+        "status": "IN_PROGRESS",
         "total_hours": None,
         "break_duration": None,
         "is_complete": False,
         "is_weekend": is_weekend_day,
-        "status": "active"
+        # "status": "active"
     }
     
     await db.attendance.insert_one(attendance_doc)
@@ -329,8 +354,44 @@ async def punch_out(current_user: User = Depends(get_current_user)):
     if not attendance or not attendance.get('punch_in'):
         raise HTTPException(status_code=400, detail="No active punch-in found for today")
     
-    if attendance.get('punch_out'):
-        raise HTTPException(status_code=400, detail="Already punched out today")
+    attendance = await get_today_attendance(current_user.user_id)
+
+    if not attendance:
+        raise HTTPException(400, "No punch in found")
+
+    if attendance["status"] == "ON_BREAK":
+        raise HTTPException(400, "End break before punching out")
+
+    if attendance["status"] == "COMPLETED":
+        raise HTTPException(400, "Already punched out")
+
+    # Normalize break start datetime
+    start = last_break["start"]
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+
+    # Calculate break minutes
+    break_minutes = int(
+        (datetime.now(timezone.utc) - start).total_seconds() / 60
+    )
+
+    # Calculate work minutes
+    work_minutes = int(
+        (datetime.now(timezone.utc) - attendance["punch_in"]).total_seconds() / 60
+    ) - attendance["total_break_minutes"]
+
+
+    await db.attendance.update_one(
+        {"_id": attendance["_id"]},
+        {
+            "$set": {
+                "punch_out": datetime.now(timezone.utc),
+                "total_work_minutes": max(work_minutes, 0),
+                "status": "COMPLETED"
+            }
+        }
+    )
+
     
     now = datetime.now(timezone.utc)
     punch_in_time = datetime.fromisoformat(attendance['punch_in'].replace('Z', '+00:00'))
@@ -386,8 +447,22 @@ async def start_break(current_user: User = Depends(get_current_user)):
     if attendance.get('punch_out'):
         raise HTTPException(status_code=400, detail="Already punched out")
     
-    if attendance.get('break_start') and not attendance.get('break_end'):
-        raise HTTPException(status_code=400, detail="Break already in progress")
+    attendance = await get_today_attendance(current_user.user_id)
+
+    if not attendance:
+        raise HTTPException(400, "Punch in first")
+
+    if attendance["status"] != "IN_PROGRESS":
+        raise HTTPException(400, "Cannot start break now")
+
+    await db.attendance.update_one(
+        {"_id": attendance["_id"]},
+        {
+            "$push": {"breaks": {"start": datetime.now(timezone.utc), "end": None}},
+            "$set": {"status": "ON_BREAK"}
+        }
+    )
+
     
     now = datetime.now(timezone.utc)
     
@@ -402,24 +477,54 @@ async def start_break(current_user: User = Depends(get_current_user)):
 async def end_break(current_user: User = Depends(get_current_user)):
     if current_user.role != 'employee':
         raise HTTPException(status_code=403, detail="Only employees can end break")
-    
+
     today = datetime.now(timezone.utc).date().isoformat()
-    
-    attendance = await db.attendance.find_one({"user_id": current_user.user_id, "date": today})
-    if not attendance or not attendance.get('break_start'):
-        raise HTTPException(status_code=400, detail="No active break found")
-    
-    if attendance.get('break_end'):
+
+    attendance = await get_today_attendance(current_user.user_id)
+
+    if not attendance or attendance["status"] != "ON_BREAK":
+        raise HTTPException(status_code=400, detail="No active break")
+
+    if not attendance.get("breaks"):
+        raise HTTPException(status_code=400, detail="No break history found")
+
+    last_break = attendance["breaks"][-1]
+
+    if last_break.get("end") is not None:
         raise HTTPException(status_code=400, detail="Break already ended")
-    
+
+    start = last_break["start"]
+
+    # ---- TIMEZONE NORMALIZATION (CRITICAL) ----
+    if isinstance(start, str):
+        start = datetime.fromisoformat(start.replace("Z", "+00:00"))
+
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+
     now = datetime.now(timezone.utc)
-    
+
+    break_minutes = int((now - start).total_seconds() / 60)
+
+    # ---- UPDATE DB ----
     await db.attendance.update_one(
-        {"user_id": current_user.user_id, "date": today},
-        {"$set": {"break_end": now.isoformat()}}
+        {"_id": attendance["_id"], "breaks.end": None},
+        {
+            "$set": {
+                "breaks.$.end": now,
+                "status": "IN_PROGRESS"
+            },
+            "$inc": {
+                "total_break_minutes": break_minutes
+            }
+        }
     )
-    
-    return {"message": "Break ended", "break_end_time": now.isoformat()}
+
+    return {
+        "message": "Break ended",
+        "break_end_time": now.isoformat(),
+        "break_minutes": break_minutes
+    }
 
 @api_router.get("/attendance/my-history", response_model=List[AttendanceRecord])
 async def get_my_history(current_user: User = Depends(get_current_user)):
